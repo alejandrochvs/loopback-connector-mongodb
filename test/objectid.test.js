@@ -57,19 +57,67 @@ describe('ObjectID', function() {
     ObjectID(id).should.be.equal(123);
   });
 
-  context('ObjectID type', function() {
-    it('should throw if value is not an ObjectID', async function() {
-      Book = ds.createModel(
-        'book1',
+  context("mongodb.dataType = 'ObjectID'", function() {
+    const ObjectID = ds.connector.getDefaultIdType();
+    const objectIdLikeString = '7cd2ad46ffc580ba45d3cb1f';
+
+    context('with strictObjectIDCoercion set to false (default)', function() {
+      const Article = ds.createModel(
+        'Article',
         {
-          xid: {type: String, mongodb: {dataType: 'objectid'}},
+          xid: String,
+          title: String,
+          mongodb: {dataType: 'ObjectID'},
         }
       );
-      try {
-        await Book.create({xid: 'x'});
-      } catch (e) {
-        e.message.should.match(/not an ObjectID string/);
-      }
+
+      beforeEach(function(done) {
+        Article.deleteAll(done);
+      });
+
+      it('should throw if value is not an ObjectID', async function() {
+        try {
+          await Article.create({xid: 'x'});
+        } catch (e) {
+          e.message.should.match(/not an ObjectID string/);
+        }
+      });
+
+      it('should save ObjectID-like string as ObjectID', async function() {
+        const article = await Article.create({xid: objectIdLikeString, title: 'Hello'});
+        const found = await Article.findOne({where: {xid: ObjectID(objectIdLikeString)}});
+        found.title.should.equal('Hello');
+      });
+    });
+
+    context('with strictObjectIDCoercion set to true', function() {
+      const ArticleB = ds.createModel(
+        'ArticleB',
+        {
+          xid: String,
+          title: String,
+          mongodb: {dataType: 'ObjectID'},
+        },
+        {strictObjectIDCoercion: true}
+      );
+
+      beforeEach(function(done) {
+        ArticleB.deleteAll(done);
+      });
+
+      it('should throw if value is not an ObjectID', async function() {
+        try {
+          await ArticleB.create({xid: 'x'});
+        } catch (e) {
+          e.message.should.match(/not an ObjectID string/);
+        }
+      });
+
+      it('should not save ObjectID-like string as ObjectID', async function() {
+        const article = await ArticleB.create({xid: objectIdLikeString, title: 'Hello'});
+        const found = await ArticleB.findOne({where: {xid: objectIdLikeString}});
+        found.title.should.equal('Hello');
+      });
     });
   });
 });
